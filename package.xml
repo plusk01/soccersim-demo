@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>soccersim-demo</name>
+  <name>demoteam</name>
   <version>0.0.0</version>
-  <description>The soccersim-demo package</description>
+  <description>The demoteam package</description>
 
   <maintainer email="parkerclusk@gmail.com">Parker Lusk</maintainer>
   <author email="parkerclusk@gmail.com">Parker Lusk</author>
