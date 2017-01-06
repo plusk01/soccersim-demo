@@ -28,7 +28,7 @@
 
             <remap from="ally1_vision" to="/vision/$(arg team_side)1" />
             <remap from="ally2_vision" to="/vision/$(arg team_side)2" />
-            <remap from="opponent1_vision" to="/vision/$(arg other_side)2" />
+            <remap from="opponent1_vision" to="/vision/$(arg other_side)1" />
             <remap from="opponent2_vision" to="/vision/$(arg other_side)2" />
             <remap from="ball_vision" to="/vision/ball" />
 

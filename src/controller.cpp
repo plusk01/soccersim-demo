@@ -9,7 +9,7 @@ using namespace std;
 using namespace geometry_msgs;
 using namespace Eigen;
 
-#define ROBOT_MAX_VXY 1.5
+#define ROBOT_MAX_VXY 2.0
 #define ROBOT_MAX_OMEGA 2*M_PI
 #define CONTROL_K_XY 5
 #define CONTROL_K_OMEGA 2
@@ -38,11 +38,6 @@ Vector2d ball;
 void moveRobot(Vector3d v_world, int robotId)
 {
     geometry_msgs::Twist v;
-    // if(team == "away") // Flip coordinates if team is away
-    // {
-    //     v_world(0) = -v_world(0);
-    //     v_world(1) = -v_world(1);
-    // }
     v.linear.x = v_world(0);
     v.linear.y = v_world(1);
     v.angular.z = v_world(2);
@@ -204,7 +199,11 @@ int main(int argc, char **argv)
     param_init();
     ros::init(argc, argv, "home");
     ros::NodeHandle nh;
-    nh.param<string>("team", team, "home");
+
+    // Private node handle to get whether we are home or away.
+    // Having the nh private properly namespaces it.
+    ros::NodeHandle priv_nh("~");
+    priv_nh.param<string>("team", team, "home");
 
     vsub_ally1 = nh.subscribe<geometry_msgs::Pose2D>("ally1_vision", 1, boost::bind(visionCallback, _1, "ally1"));
     vsub_ally2 = nh.subscribe<geometry_msgs::Pose2D>("ally2_vision", 1, boost::bind(visionCallback, _1, "ally2"));
