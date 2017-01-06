@@ -1,16 +1,15 @@
-#include "ros/ros.h"
-#include "geometry_msgs/Pose2D.h"
-#include "geometry_msgs/Vector3.h"
-#include "std_msgs/Float64.h"
-#include "soccersim/SoccerPoses.h"
-#include "stdio.h"
+#include <stdio.h>
 #include <eigen3/Eigen/Eigen>
+#include <boost/bind.hpp>
+#include <ros/ros.h>
+#include <geometry_msgs/Pose2D.h>
+#include <geometry_msgs/Twist.h>
 
 using namespace std;
 using namespace geometry_msgs;
 using namespace Eigen;
 
-#define ROBOT_MAX_VXY .5
+#define ROBOT_MAX_VXY 1.5
 #define ROBOT_MAX_OMEGA 2*M_PI
 #define CONTROL_K_XY 5
 #define CONTROL_K_OMEGA 2
@@ -18,29 +17,36 @@ using namespace Eigen;
 #define FIELD_HEIGHT 2.38 
 #define ROBOT_RADIUS 0.10
 
-string team;
-Vector2d goal;
-ros::Publisher motor_pub1;
-ros::Publisher motor_pub2;
-ros::Subscriber vision_sub;
-
 struct RobotPose
 {
     Vector2d pos;
     double theta;
 };
 
+string team;
+Vector2d goal;
+ros::Publisher motor_pub1;
+ros::Publisher motor_pub2;
+ros::Subscriber vsub_ally1, vsub_ally2;
+ros::Subscriber vsub_opp1, vsub_opp2;
+ros::Subscriber vsub_ball;
+
+RobotPose ally1, ally2;
+RobotPose opp1, opp2;
+Vector2d ball;
+
 void moveRobot(Vector3d v_world, int robotId)
 {
-    geometry_msgs::Vector3 v;
-    if(team == "away") // Flip coordinates if team is away
-    {
-        v_world(0) = -v_world(0);
-        v_world(1) = -v_world(1);
-    }
-    v.x = v_world(0);
-    v.y = v_world(1);
-    v.z = v_world(2);
+    geometry_msgs::Twist v;
+    // if(team == "away") // Flip coordinates if team is away
+    // {
+    //     v_world(0) = -v_world(0);
+    //     v_world(1) = -v_world(1);
+    // }
+    v.linear.x = v_world(0);
+    v.linear.y = v_world(1);
+    v.angular.z = v_world(2);
+
     if(robotId == 1)
         motor_pub1.publish(v);
     else if(robotId == 2)
@@ -169,44 +175,67 @@ void play_rushGoal(RobotPose robot, Vector2d ball, int robotId)
     // compute position 10cm behind ball, but aligned with goal.
     Vector2d position = ball - 0.2*n;
 
-    if(utility_vecLength(position - robot.pos) < .21)
+    if(utility_vecLength(position - robot.pos) < 0.21)
         skill_goToPoint(robot, goal, robotId);
     else
         skill_goToPoint(robot, position, robotId);
 }
 
-void visionCallback(const soccersim::SoccerPoses& msg)
+void visionCallback(const geometry_msgs::Pose2D::ConstPtr &msg, const std::string& robot)
 {
-    RobotPose player1;
-    RobotPose player2;
-    RobotPose opponent1;
-    RobotPose opponent2;
-    Vector2d ball;
-    player1   = utility_toRobotPose((team == "home") ? msg.home1 : msg.away1);
-    player2   = utility_toRobotPose((team == "home") ? msg.home2 : msg.away2);
-    opponent1 = utility_toRobotPose((team == "home") ? msg.away1 : msg.home1);
-    opponent2 = utility_toRobotPose((team == "home") ? msg.away2 : msg.home2);
-    ball      = utility_toBallPose(msg.ball);
+    if(robot == "ally1")
+        ally1 = utility_toRobotPose(*msg);
 
-    // robot #1 positions itself behind ball and rushes the goal.
-    play_rushGoal(player1, ball, 1);
+    else if(robot == "ally2")
+        ally2 = utility_toRobotPose(*msg);
 
-    // robot #2 stays on line, following the ball, facing the goal
-    skill_followBallOnLine(player2, ball, -2 * FIELD_WIDTH / 6, 2);
+    else if(robot == "opponent1")
+        opp1 = utility_toRobotPose(*msg);
+
+    else if(robot == "opponent2")
+        opp2 = utility_toRobotPose(*msg);
+
+    else if(robot == "ball")
+        ball = utility_toBallPose(*msg);
 }
 
 int main(int argc, char **argv)
 {
     param_init();
     ros::init(argc, argv, "home");
-    ros::NodeHandle nh("~");
+    ros::NodeHandle nh;
     nh.param<string>("team", team, "home");
 
-    vision_sub = nh.subscribe("/vision", 1, visionCallback);
-    motor_pub1 = nh.advertise<geometry_msgs::Vector3>("/" + team + "1/command", 5);
-    motor_pub2 = nh.advertise<geometry_msgs::Vector3>("/" + team + "2/command", 5);
+    vsub_ally1 = nh.subscribe<geometry_msgs::Pose2D>("ally1_vision", 1, boost::bind(visionCallback, _1, "ally1"));
+    vsub_ally2 = nh.subscribe<geometry_msgs::Pose2D>("ally2_vision", 1, boost::bind(visionCallback, _1, "ally2"));
+    vsub_opp1 = nh.subscribe<geometry_msgs::Pose2D>("opponent1_vision", 1, boost::bind(visionCallback, _1, "opponent1"));
+    vsub_opp2 = nh.subscribe<geometry_msgs::Pose2D>("opponent2_vision", 1, boost::bind(visionCallback, _1, "opponent2"));
+    vsub_ball = nh.subscribe<geometry_msgs::Pose2D>("ball_vision", 1, boost::bind(visionCallback, _1, "ball"));
+    motor_pub1 = nh.advertise<geometry_msgs::Twist>("ally1/vel_cmds", 5);
+    motor_pub2 = nh.advertise<geometry_msgs::Twist>("ally2/vel_cmds", 5);
 
-    ros::spin();
+    ros::Rate loop_rate(30);
+    while(ros::ok())
+    {
+        /*********************************************************************/
+        // Choose strategies
+
+        // robot #1 positions itself behind ball and rushes the goal.
+        play_rushGoal(ally1, ball, 1);
+
+        // robot #2 stays on line, following the ball, facing the goal
+        skill_followBallOnLine(ally2, ball, -2 * FIELD_WIDTH / 6, 2);
+
+        /*********************************************************************/
+
+        // process any callbacks
+        ros::spinOnce();
+
+        // force looping at a constant rate
+        loop_rate.sleep();
+    }
+
+    // Clean up
     Vector3d zeroVel;
     zeroVel << 0, 0, 0;
     moveRobot(zeroVel, 1);
