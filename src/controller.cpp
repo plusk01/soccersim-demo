@@ -95,7 +95,7 @@ double utility_angleMod(double angle)
 
 RobotPose utility_toRobotPose(Pose2D robot)
 {
-    if(team == "away") // Flip coordinates if team is away
+    if((team == "away") ^ gameState.swapsides) // Flip coordinates if team is away or if we've swapped sides
     {
         robot.x = -robot.x;
         robot.y = -robot.y;
@@ -108,7 +108,7 @@ RobotPose utility_toRobotPose(Pose2D robot)
 
 Vector2d utility_toBallPose(Pose2D ball)
 {
-    if(team == "away") // Flip coordinates if team is away
+    if((team == "away") ^ gameState.swapsides) // Flip coordinates if team is away or if we've swapped sides
     {
         ball.x = -ball.x;
         ball.y = -ball.y;
