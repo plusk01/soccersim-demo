@@ -4,6 +4,7 @@
 #include <ros/ros.h>
 #include <geometry_msgs/Pose2D.h>
 #include <geometry_msgs/Twist.h>
+#include "soccer_ref/GameState.h"
 
 using namespace std;
 using namespace geometry_msgs;
@@ -30,10 +31,14 @@ ros::Publisher motor_pub2;
 ros::Subscriber vsub_ally1, vsub_ally2;
 ros::Subscriber vsub_opp1, vsub_opp2;
 ros::Subscriber vsub_ball;
+ros::Subscriber game_state_sub;
+soccer_ref::GameState gameState;
 
 RobotPose ally1, ally2;
 RobotPose opp1, opp2;
 Vector2d ball;
+Vector2d ally1_startingPos;
+Vector2d ally2_startingPos;
 
 void moveRobot(Vector3d v_world, int robotId)
 {
@@ -194,6 +199,12 @@ void visionCallback(const geometry_msgs::Pose2D::ConstPtr &msg, const std::strin
         ball = utility_toBallPose(*msg);
 }
 
+
+void gameStateCallback(const soccer_ref::GameState::ConstPtr &msg)
+{
+    gameState = *msg;
+}
+
 int main(int argc, char **argv)
 {
     param_init();
@@ -210,22 +221,44 @@ int main(int argc, char **argv)
     vsub_opp1 = nh.subscribe<geometry_msgs::Pose2D>("opponent1_vision", 1, boost::bind(visionCallback, _1, "opponent1"));
     vsub_opp2 = nh.subscribe<geometry_msgs::Pose2D>("opponent2_vision", 1, boost::bind(visionCallback, _1, "opponent2"));
     vsub_ball = nh.subscribe<geometry_msgs::Pose2D>("ball_vision", 1, boost::bind(visionCallback, _1, "ball"));
+    vsub_ball = nh.subscribe<geometry_msgs::Pose2D>("ball_vision", 1, boost::bind(visionCallback, _1, "ball"));
+    game_state_sub = nh.subscribe<soccer_ref::GameState>("/game_state", 1, gameStateCallback);
     motor_pub1 = nh.advertise<geometry_msgs::Twist>("ally1/vel_cmds", 5);
     motor_pub2 = nh.advertise<geometry_msgs::Twist>("ally2/vel_cmds", 5);
+
+    // This is sort of ad-hoc (would be much better to be a parameter) but it works for now
+    ally1_startingPos << -0.5, 0;
+    ally2_startingPos << -1.0, 0;
 
     ros::Rate loop_rate(30);
     while(ros::ok())
     {
-        /*********************************************************************/
-        // Choose strategies
+        if (gameState.play)
+        {
 
-        // robot #1 positions itself behind ball and rushes the goal.
-        play_rushGoal(ally1, ball, 1);
+            /*********************************************************************/
+            // Choose strategies
 
-        // robot #2 stays on line, following the ball, facing the goal
-        skill_followBallOnLine(ally2, ball, -2 * FIELD_WIDTH / 6, 2);
+            // robot #1 positions itself behind ball and rushes the goal.
+            play_rushGoal(ally1, ball, 1);
 
-        /*********************************************************************/
+            // robot #2 stays on line, following the ball, facing the goal
+            skill_followBallOnLine(ally2, ball, -2 * FIELD_WIDTH / 6, 2);
+
+            /*********************************************************************/
+        }
+        else if (gameState.reset_field)
+        {
+            skill_goToPoint(ally1, ally1_startingPos, 1);
+            skill_goToPoint(ally2, ally2_startingPos, 2);
+        }
+        else //paused - do nothing
+        {
+            Vector3d zeroVel;
+            zeroVel << 0, 0, 0;
+            moveRobot(zeroVel, 1);
+            moveRobot(zeroVel, 2);
+        }
 
         // process any callbacks
         ros::spinOnce();
