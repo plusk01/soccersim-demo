@@ -16,16 +16,16 @@ find_package(catkin REQUIRED COMPONENTS
     image_transport
     sensor_msgs
     xacro
-    soccer_ref
+    soccerref
 )
 
 # Declare a catkin package
-catkin_package(CATKIN_DEPENDS roscpp rospy std_msgs std_srvs geometry_msgs message_runtime soccer_ref)
+catkin_package(CATKIN_DEPENDS roscpp rospy std_msgs std_srvs geometry_msgs message_runtime soccerref)
 
 # Specify additional locations of header files
 include_directories(include ${Boost_INCLUDE_DIR} ${catkin_INCLUDE_DIRS})
 
 # Declare a C++ executable
 add_executable(controller src/controller.cpp)
-add_dependencies(controller soccer_ref_generate_messages_cpp)
+add_dependencies(controller soccerref_generate_messages_cpp)
 target_link_libraries(controller ${catkin_LIBRARIES})

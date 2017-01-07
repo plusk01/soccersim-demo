@@ -4,7 +4,7 @@
 #include <ros/ros.h>
 #include <geometry_msgs/Pose2D.h>
 #include <geometry_msgs/Twist.h>
-#include "soccer_ref/GameState.h"
+#include "soccerref/GameState.h"
 
 using namespace std;
 using namespace geometry_msgs;
@@ -32,7 +32,7 @@ ros::Subscriber vsub_ally1, vsub_ally2;
 ros::Subscriber vsub_opp1, vsub_opp2;
 ros::Subscriber vsub_ball;
 ros::Subscriber game_state_sub;
-soccer_ref::GameState gameState;
+soccerref::GameState gameState;
 
 RobotPose ally1, ally2;
 RobotPose opp1, opp2;
@@ -200,7 +200,7 @@ void visionCallback(const geometry_msgs::Pose2D::ConstPtr &msg, const std::strin
 }
 
 
-void gameStateCallback(const soccer_ref::GameState::ConstPtr &msg)
+void gameStateCallback(const soccerref::GameState::ConstPtr &msg)
 {
     gameState = *msg;
 }
@@ -222,7 +222,7 @@ int main(int argc, char **argv)
     vsub_opp2 = nh.subscribe<geometry_msgs::Pose2D>("opponent2_vision", 1, boost::bind(visionCallback, _1, "opponent2"));
     vsub_ball = nh.subscribe<geometry_msgs::Pose2D>("ball_vision", 1, boost::bind(visionCallback, _1, "ball"));
     vsub_ball = nh.subscribe<geometry_msgs::Pose2D>("ball_vision", 1, boost::bind(visionCallback, _1, "ball"));
-    game_state_sub = nh.subscribe<soccer_ref::GameState>("/game_state", 1, gameStateCallback);
+    game_state_sub = nh.subscribe<soccerref::GameState>("/game_state", 1, gameStateCallback);
     motor_pub1 = nh.advertise<geometry_msgs::Twist>("ally1/vel_cmds", 5);
     motor_pub2 = nh.advertise<geometry_msgs::Twist>("ally2/vel_cmds", 5);
 
